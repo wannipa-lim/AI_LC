@@ -11,7 +11,7 @@ from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
-from utils.plots import plot_one_box
+from utils.plots import plot_one_box, plot_two_box, plot_line
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
 
@@ -84,6 +84,7 @@ def detect(save_img=False):
             pred = apply_classifier(pred, modelc, img, im0s)
 
         # Process detections
+
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
                 p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
@@ -105,16 +106,38 @@ def detect(save_img=False):
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # Write results
+                index = 0 #k
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
+                    
+                    #  box1 = xyxy
+                    if index == 0:
+                        box1 = xyxy
+                        c1,c2 = (int(box1[0]), int(box1[1])), (int(box1[2]), int(box1[3]))
+                        c_center1 = (int((box1[0]+box1[2])/2), int((box1[1]+box1[3])/2))
+                        if save_img or view_img:  # Add bbox to image
+                            label = f'{names[int(cls)]} {conf:.2f}'
+                            plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
 
-                    if save_img or view_img:  # Add bbox to image
-                        label = f'{names[int(cls)]} {conf:.2f}'
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                    elif index == 1:
+                        box2 = xyxy
+                        cc1,cc2 = (int(box2[0]), int(box2[1])), (int(box2[2]), int(box2[3]))
+                        c_center2 = (int((box2[0]+box2[2])/2), int((box2[1]+box2[3])/2))
+                        center = (c_center1, c_center2)
+                        if save_img or view_img:  # Add bbox to image
+                            label = f'{names[int(cls)]} {conf:.2f}'
+                            plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                            cv2.line(im0, c_center1, c_center2, (67,67,67),2)
+                            #plot_line(center, im0)   
+                    index = index+1 #k
+
+                    
+
+                
 
             # Print time (inference + NMS)
             #print(f'{s}Done. ({t2 - t1:.3f}s)')
